@@ -21,6 +21,7 @@ utility.
   * RZ/V2H EVK
   * RZ/V2N EVK
   * RZ/V2L SMARC
+* RZ/Five SMARC
 
 ## Program Bootloaders using internal ROM and Flashwriter
 
@@ -91,6 +92,7 @@ multiple different .ini files. By default, "config.ini" is chosen.
   * **RZ/G2H, RZ/G2N, RZ/G2M, RZ/G2E:** Set `SA0_FILE`, `BL2_FILE`, `SA6_FILE`,
 `BL31_FILE`, `UBOOT_FILE`
   * **RZ/G2L, RZ/G2LC, RZ/G2UL, RZ/V2L, RZ/G3E, RZ/G3S:** Set `BL2_FILE`, `FIP_FILE`
+  * **RZ/Five:** Set `SPL_FILE`, `FIT_FILE`
 * **Operations:**
   * Select these menu items to perform the operations
   * The "★" symbols shows the operations can be performed next
@@ -171,6 +173,12 @@ gedit my_config.ini
 # RZ/G2L, RZ/G2LC, RZ/G2UL, RZ/V2L, RZ/G3E, RZ/G3S:
 ./flash_writer_tool.sh my_config.ini fw
 ./flash_writer_tool.sh my_config.ini atf
+```
+```bash
+# RZ/Five:
+./flash_writer_tool.sh my_config.ini fw
+./flash_writer_tool.sh my_config.ini spl
+./flash_writer_tool.sh my_config.ini fit
 ```
 
 * To avoid the manual interaction after the prompt reminding the user to turn

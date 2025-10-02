@@ -25,6 +25,7 @@ SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 AUTO="${AUTO:-false}"
 
 FIP=0 # TF-A uses FIP instead of BL31
+RISCV=0
 EMMC_4BIT=0 # eMMC uses 4-bit data, not 8-bit
 if [ "$FW_GUI_MODE" == "" ] ; then
   FW_GUI_MODE=0
@@ -106,7 +107,8 @@ Switch settings for SW1002.
   fi
 
   if [ "$BOARD" == "smarc-rzg2l" ] || [ "$BOARD" == "smarc-rzg2lc" ] || [ "$BOARD" == "smarc-rzg2ul" ] || \
-     [ "$BOARD" == "smarc-rzv2l" ] || [ "$BOARD" == "smarc-rzg3e" ] || [ "$BOARD" == "smarc-rzg3s" ] ; then
+     [ "$BOARD" == "smarc-rzv2l" ] || [ "$BOARD" == "smarc-rzg3e" ] || [ "$BOARD" == "smarc-rzg3s" ] || \
+     [ "$BOARD" == "smarc-rzfive" ] ; then
 
 	SW_NAME="SW11"
 
@@ -144,6 +146,9 @@ Switch settings for SW1002.
 	if [ "$BOARD" == "smarc-rzg3s" ] ; then
 		BOARD_NAME="RZ/G3S SMARC Board by Renesas"
 		SW_NAME="SW_MODE"
+	fi
+	if [ "$BOARD" == "smarc-rzfive" ]; then
+		BOARD_NAME="RZ/Five SMARC Board by Renesas"
 	fi
 
 	SW_SETTINGS="
@@ -320,6 +325,17 @@ set_flash_address() {
     EMMC_FIP_RAM="0"         ; EMMC_FIP_PART="1"  ; EMMC_FIP_SECTOR="100"
   fi
 
+  if [ "$BOARD" == "smarc-rzfive" ]; then
+
+    LONGER_CMD_DELAY=1	# These parts need more time between sending commands
+
+    SPI_SPL_RAM="11E00" ; SPI_SPL_FLASH="0"
+    SPI_FIT_RAM="0"     ; SPI_FIT_FLASH="20000"
+
+    EMMC_SPL_RAM="11E00"	; EMMC_SPL_PART="1" ; EMMC_SPL_SECTOR="1"
+    EMMC_FIT_RAM="0"		; EMMC_FIT_PART="1" ; EMMC_FIT_SECTOR="100"
+  fi
+
   if [ "$BOARD" == "rzv2h-evk-ver1" ] || [ "$BOARD" == "rzv2n-evk" ]; then
 
     LONGER_CMD_DELAY=1	# These parts need more time between sending commands
@@ -368,6 +384,8 @@ clear_filenames() {
   unset BL31_FILE
   unset FIP_FILE
   unset UBOOT_FILE
+  unset SPL_FILE
+  unset FIT_FILE
 }
 
 # Use this function to determine if any config settings have changed
@@ -386,6 +404,8 @@ config_hash() {
   "$BL31_FILE" \
   "$FIP_FILE" \
   "$UBOOT_FILE" \
+  "$SPL_FILE" \
+  "$FIT_FILE" \
   | md5sum)
 }
 
@@ -445,6 +465,11 @@ set_filenames() {
 	if [ "$UBOOT_FILE" == "" ] ; then
 		UBOOT_FILE=$FILES_DIR/u-boot-elf-${BOARD}.srec
 	fi
+
+	# Clear file settings we do not use
+	FIP_FILE=""
+	SPL_FILE=""
+	FIT_FILE=""
   fi
 
   if [ "$BOARD" == "smarc-rzg2l" ] || [ "$BOARD" == "smarc-rzg2lc" ] || [ "$BOARD" == "smarc-rzg2ul" ] || \
@@ -552,6 +577,35 @@ set_filenames() {
 	SA6_FILE=""
 	BL31_FILE=""
 	UBOOT_FILE=""
+	SPL_FILE=""
+	FIT_FILE=""
+  fi
+
+  if [ "$BOARD" == "smarc-rzfive" ] ; then
+
+	RISCV=1
+	EMMC_4BIT=1
+
+	if [ "$FILES_DIR" == "" ] ; then
+		FILES_DIR="."
+	fi
+	if [ "$FLASHWRITER" == "" ] ; then
+		FLASHWRITER=$FILES_DIR/Flash_Writer_SCIF_RZFIVE_SMARC.mot
+	fi
+	if [ "$SPL_FILE" == "" ] ; then
+		SPL_FILE=$FILES_DIR/spl-smarc-rzfive.srec
+	fi
+	if [ "$FIT_FILE" == "" ] ; then
+		FIT_FILE=$FILES_DIR/fit-smarc-rzfive.srec
+	fi
+
+	# Clear file settings we do not use
+	SA0_FILE=""
+	BL2_FILE=""
+	SA6_FILE=""
+	BL31_FILE=""
+	FIP_FILE=""
+	UBOOT_FILE=""
   fi
 }
 
@@ -584,6 +638,9 @@ set_fw_binary() {
     fi
     if [ "$BOARD" == "smarc-rzg2ul" ] ; then
       FLASHWRITER="./binaries/Flash_Writer_SCIF_RZG2UL_SMARC_DDR4_1GB_1PCS.mot"
+    fi
+    if [ "$BOARD" == "smarc-rzfive" ] ; then
+      FLASHWRITER="./binaries/Flash_Writer_SCIF_RZFIVE_SMARC.mot"
     fi
 
   fi
@@ -661,6 +718,7 @@ do_menu_board() {
 	"smarc-rzv2l"    "  SMARC RZ/V2L by Renesas Electronics" \
 	"smarc-rzg3e"    "  SMARC RZ/G3E by Renesas Electronics" \
 	"smarc-rzg3s"    "  SMARC RZ/G3S by Renesas Electronics" \
+	"smarc-rzfive"   "  SMARC RZ/Five by Renesas Electronics" \
 	"rzv2h-evk-ver1" "  RZ/V2H EVK by Renesas Electronics" \
 	"rzv2n-evk"      "  RZ/V2N EVK by Renesas Electronics" \
 	"rzt2h-dev"      "  RZ/T2H EVK by Renesas Electronics" \
@@ -669,6 +727,7 @@ do_menu_board() {
   RET=$?
   if [ $RET -eq 0 ] ; then
     FIP=0
+    RISCV=0
     EMMC_4BIT=0
     case "$SELECT" in
       ek874) BOARD=ek874 ;;
@@ -695,6 +754,7 @@ do_menu_board() {
       ;;
       smarc-rzg3e) BOARD=smarc-rzg3e ; FIP=1 ; EMMC_4BIT=1 ;;
       smarc-rzg3s) BOARD=smarc-rzg3s ; FIP=1 ; EMMC_4BIT=1 ;;
+      smarc-rzfive) BOARD=smarc-rzfive ; RISCV=1 ; EMMC_4BIT=1 ;;
       rzv2h-evk-ver1) BOARD=rzv2h-evk-ver1 ; FIP=1 ; EMMC_4BIT=1 ;;
       rzv2n-evk) BOARD=rzv2n-evk ; FIP=1 ; EMMC_4BIT=1 ;;
       rzt2h-dev) BOARD=rzt2h-dev ; FIP=1 ; EMMC_4BIT=1 ;;
@@ -1034,6 +1094,26 @@ do_menu_file_uboot() {
   fi
 }
 
+do_menu_file_spl() {
+  SELECT=$(whiptail --title "SPL File Selection" --inputbox "You may use ESC+ESC to cancel.\n\n Enter file path to SPL File." 0 100 \
+	"${SPL_FILE}" \
+	3>&1 1>&2 2>&3)
+  RET=?
+  if [ $RET -eq 0 ] ; then
+    SPL_FILE="$SELECT"
+  fi
+}
+
+do_menu_file_fit() {
+  SELECT=$(whiptail --title "FIT File Selection" --inputbox "You may use ESC+ESC to cancel.\n\n Enter file path to FIT File." 0 100 \
+	"${FIT_FILE}" \
+	3>&1 1>&2 2>&3)
+  RET=?
+  if [ $RET -eq 0 ] ; then
+    FIT_FILE="$SELECT"
+  fi
+}
+
 do_cmd_atf() {
 	FW_GUI_MODE=2
 	echo "${SCRIPT_DIR}/flash_writer_tool.sh atf"
@@ -1088,6 +1168,9 @@ save_config() {
 	echo "BL31_FILE=$BL31_FILE" >> $CONFIG_FILE
 	echo "FIP_FILE=$FIP_FILE" >> $CONFIG_FILE
 	echo "UBOOT_FILE=$UBOOT_FILE" >> $CONFIG_FILE
+	echo "RISCV=$RISCV" >> $CONFIG_FILE
+	echo "SPL_FILE=$SPL_FILE" >> $CONFIG_FILE
+	echo "FIT_FILE=$FIT_FILE" >> $CONFIG_FILE
 }
 
 save_settings() {
@@ -1179,6 +1262,11 @@ if [ "$FW_GUI_MODE" == "1" ] ; then
       FIP=1
       EMMC_4BIT=1
       DETECTED=1
+    elif [ -e ${IMAGES_DIR}/smarc-rzfive ] ; then
+      BOARD="smarc-rzfive"
+      RISCV=1
+      EMMC_4BIT=1
+      DETECTED=1
     elif [ -e ${IMAGES_DIR}/rzv2h-evk-ver1 ] ; then
       BOARD="rzv2h-evk-ver1"
       FIP=1
@@ -1253,6 +1341,8 @@ if [ "$FW_GUI_MODE" == "1" ] ; then
     BL31_FILE_TEXT=$(echo $BL31_FILE | sed "s:$FILES_DIR:\$(FILES_DIR):")
     FIP_FILE_TEXT=$(echo $FIP_FILE | sed "s:$FILES_DIR:\$(FILES_DIR):")
     UBOOT_FILE_TEXT=$(echo $UBOOT_FILE | sed "s:$FILES_DIR:\$(FILES_DIR):")
+    SPL_FILE_TEXT=$(echo $SPL_FILE | sed "s:$FILES_DIR:\$(FILES_DIR):")
+    FIT_FILE_TEXT=$(echo $FIT_FILE | sed "s:$FILES_DIR:\$(FILES_DIR):")
 
     # check if files exits
     if [ -e "$FILES_DIR" ] ; then FD_EXIST="✓" ; else FD_EXIST="x" ; fi
@@ -1263,15 +1353,29 @@ if [ "$FW_GUI_MODE" == "1" ] ; then
     if [ -e "$BL31_FILE" ] ; then BL31_EXIST="✓" ; else BL31_EXIST="x" ; fi
     if [ -e "$FIP_FILE" ] ; then FIP_EXIST="✓" ; else FIP_EXIST="x" ; fi
     if [ -e "$UBOOT_FILE" ] ; then UBOOT_EXIST="✓" ; else UBOOT_EXIST="x" ; fi
+    if [ -e "$SPL_FILE" ] ; then SPL_EXIST="✓" ; else SPL_EXIST="x" ; fi
+    if [ -e "$FIT_FILE" ] ; then FIT_EXIST="✓" ; else FIT_EXIST="x" ; fi
 
-    # Remove entries based on FIP
-    if [ "$FIP" == "0" ] ; then
-      FIP_EXIST=" " ; FIP_FILE_TEXT=""
-    else
+
+    # Remove unnecessary entries for each configuration
+    if [ "$FIP" == "1" ] ; then
       SA0_EXIST=" " ; SA0_FILE_TEXT=""
       SA6_EXIST=" " ; SA6_FILE_TEXT=""
       BL31_EXIST=" " ; BL31_FILE_TEXT=""
       UBOOT_EXIST=" " ; UBOOT_FILE_TEXT=""
+      SPL_EXIST=" " ; SPL_FILE_TEXT=""
+      FIT_EXIST=" " ; FIT_FILE_TEXT=""
+    elif [ "$RISCV" == "1" ] ; then
+      BL2_EXIST=" " ; BL2_FILE_TEXT=""
+      SA0_EXIST=" " ; SA0_FILE_TEXT=""
+      SA6_EXIST=" " ; SA6_FILE_TEXT=""
+      BL31_EXIST=" " ; BL31_FILE_TEXT=""
+      UBOOT_EXIST=" " ; UBOOT_FILE_TEXT=""
+      FIP_EXIST=" " ; FIP_FILE_TEXT=""
+    else
+      FIP_EXIST=" " ; FIP_FILE_TEXT=""
+      SPL_EXIST=" " ; SPL_FILE_TEXT=""
+      FIT_EXIST=" " ; FIT_FILE_TEXT=""
     fi
 
     # Remind users to run flash writer first (FWR =Flash Writer Reminder)
@@ -1279,21 +1383,26 @@ if [ "$FW_GUI_MODE" == "1" ] ; then
     OP1=" " # SA0, SA6, BL31, u-boot, ALL
     OP2=" " # BL2, ATF
     OP3=" " # FIP
-    OP4=" " # eMMC
+    OP4=" " # SPL
+    OP5=" " # FIT
+    OP6=" " # eMMC
 
     if [ "$FW_NOT_DL_YET" == "1" ] ; then
       FWR="★"
     else
       FWR=" "
       if [ "$FLASH" == "1" ] ; then
-        OP4="★"
+        OP6="★"
       fi
-      if [ "$FIP" == "0" ] ; then
-        OP1="★"
-        OP2="★"
-      else
+      if [ "$FIP" == "1" ] ; then
         OP2="★"
         OP3="★"
+      elif [ "$RISCV" == "1" ] ; then
+        OP4="★"
+        OP5="★"
+      else
+        OP1="★"
+        OP2="★"
       fi
     fi
 
@@ -1331,6 +1440,8 @@ if [ "$FW_GUI_MODE" == "1" ] ; then
 	"           BL31_FILE:" "$BL31_EXIST $BL31_FILE_TEXT" \
 	"           FIP_FILE:" "$FIP_EXIST $FIP_FILE_TEXT" \
 	"          UBOOT_FILE:" "$UBOOT_EXIST $UBOOT_FILE_TEXT" \
+	"            SPL_FILE:" "$SPL_EXIST $SPL_FILE_TEXT" \
+	"            FIT_FILE:" "$FIT_EXIST $FIT_FILE_TEXT" \
 	"______Operations_____" "" \
 	"$FWR Download F.W.   " "  Downloads the Flash Writer binary (must be run first)" \
 	"$OP1 Program SA0     " "  SA0 (Boot Parameters)" \
@@ -1341,10 +1452,12 @@ if [ "$FW_GUI_MODE" == "1" ] ; then
 	"$OP1 Program u-boot  " "  u-boot (BL33, Non-trusted Firmware)" \
 	"$OP2 Program ATF     " "  Program all arm-trusted-firmware files (SA0,BL2,SA6,BL31,FIP)" \
 	"$OP1 Program All     " "  Programs all files (SA0,BL2,SA6,BL31 and u-boot)" \
-	"$OP4 eMMC boot setup " "  Configure an eMMC device for booting (only needed once)" \
-	"$OP4 eMMC erase Boot 1 " "  Erases eMMC Boot Partition 1 (needed when re-flashing to clear u-boot)" \
-	"$OP4 eMMC erase Boot 2 " "  Erases eMMC Boot Partition 2 (needed when re-flashing to clear u-boot env)" \
-	"$OP4 eMMC erase User  " "  Erases eMMC User Partition 0 (optional)" \
+	"$OP4 Program SPL     " "  SPL (Secondary Program Loader)" \
+	"$OP5 Program FIT     " "  FIT (Flattened Image Tree)" \
+	"$OP6 eMMC boot setup " "  Configure an eMMC device for booting (only needed once)" \
+	"$OP6 eMMC erase Boot 1 " "  Erases eMMC Boot Partition 1 (needed when re-flashing to clear u-boot)" \
+	"$OP6 eMMC erase Boot 2 " "  Erases eMMC Boot Partition 2 (needed when re-flashing to clear u-boot env)" \
+	"$OP6 eMMC erase User  " "  Erases eMMC User Partition 0 (optional)" \
 	"$FWR Show switches   " "  Show the switch settings for Renesas boards (in case you forgot)" \
 	3>&1 1>&2 2>&3)
     RET=$?
@@ -1381,12 +1494,14 @@ if [ "$FW_GUI_MODE" == "1" ] ; then
 
         *FILES_DIR:*) do_menu_file_dir ;;
         *FLASHWRITER:*) do_menu_file_fw ;;
-        *SA0_FILE:*) if [ "$FIP" == "1" ] ; then continue ; fi ; do_menu_file_sa0 ;;
-        *BL2_FILE:*) do_menu_file_bl2 ;;
-        *SA6_FILE:*) if [ "$FIP" == "1" ] ; then continue ; fi ; do_menu_file_sa6 ;;
-        *BL31_FILE:*) if [ "$FIP" == "1" ] ; then continue ; fi ; do_menu_file_bl31 ;;
+        *SA0_FILE:*) if [ "$FIP" == "1" ] || [ "$RISCV" == "1" ] ; then continue ; fi ; do_menu_file_sa0 ;;
+        *BL2_FILE:*) if [ "$RISCV" == "1" ] ; then continue ; fi ; do_menu_file_bl2 ;;
+        *SA6_FILE:*) if [ "$FIP" == "1" ] || [ "$RISCV" == "1" ] ; then continue ; fi ; do_menu_file_sa6 ;;
+        *BL31_FILE:*) if [ "$FIP" == "1" ] || [ "$RISCV" == "1" ] ; then continue ; fi ; do_menu_file_bl31 ;;
         *FIP_FILE:*) if [ "$FIP" == "0" ] ; then continue ; fi ; do_menu_file_fip ;;
-        *UBOOT_FILE:*) if [ "$FIP" == "1" ] ; then continue ; fi ; do_menu_file_uboot ;;
+        *UBOOT_FILE:*) if [ "$FIP" == "1" ] || [ "$RISCV" == "1" ] ; then continue ; fi ; do_menu_file_uboot ;;
+        *SPL_FILE:*) if [ "$RISCV" == "1" ] ; then do_menu_file_spl ; fi ;;
+        *FIT_FILE:*) if [ "$RISCV" == "1" ] ; then do_menu_file_fit ; fi ;;
 
         *Operations*) ;;
 
@@ -1395,13 +1510,13 @@ if [ "$FW_GUI_MODE" == "1" ] ; then
         *eMMC\ erase\ User*) CMD=x0 ; FILE_TO_SEND= ; do_cmd ;;
         *eMMC\ erase\ Boot\ 1*) CMD=x1 ; FILE_TO_SEND= ; do_cmd ;;
         *eMMC\ erase\ Boot\ 2*) CMD=x2 ; FILE_TO_SEND= ; do_cmd ;;
-        *Program\ SA0*) if [ "$FIP" == "1" ] ; then continue ; fi ; check_fw_first ; if [ "$CMD_ABORT" != "1" ] ; then CMD=sa0 ; FILE_TO_SEND=$SA0_FILE ; do_cmd ; fi ;;
-        *Program\ BL2*) check_fw_first ; if [ "$CMD_ABORT" != "1" ] ; then CMD=bl2 ; FILE_TO_SEND=$BL2_FILE ; do_cmd ; fi ;;
-        *Program\ SA6*) if [ "$FIP" == "1" ] ; then continue ; fi ; check_fw_first ; if [ "$CMD_ABORT" != "1" ] ; then CMD=sa6 ; FILE_TO_SEND=$SA6_FILE ; do_cmd ; fi ;;
-        *Program\ BL31*) if [ "$FIP" == "1" ] ; then continue ; fi ; check_fw_first ; if [ "$CMD_ABORT" != "1" ] ; then CMD=bl31 ; FILE_TO_SEND=$BL31_FILE ; do_cmd ; fi ;;
+        *Program\ SA0*) if [ "$FIP" == "1" ] || [ "$RISCV" == "1" ] ; then continue ; fi ; check_fw_first ; if [ "$CMD_ABORT" != "1" ] ; then CMD=sa0 ; FILE_TO_SEND=$SA0_FILE ; do_cmd ; fi ;;
+        *Program\ BL2*) if [ "$RISCV" == "1" ] ; then continue ; fi ; check_fw_first ; if [ "$CMD_ABORT" != "1" ] ; then CMD=bl2 ; FILE_TO_SEND=$BL2_FILE ; do_cmd ; fi ;;
+        *Program\ SA6*) if [ "$FIP" == "1" ] || [ "$RISCV" == "1" ] ; then continue ; fi ; check_fw_first ; if [ "$CMD_ABORT" != "1" ] ; then CMD=sa6 ; FILE_TO_SEND=$SA6_FILE ; do_cmd ; fi ;;
+        *Program\ BL31*) if [ "$FIP" == "1" ] || [ "$RISCV" == "1" ] ; then continue ; fi ; check_fw_first ; if [ "$CMD_ABORT" != "1" ] ; then CMD=bl31 ; FILE_TO_SEND=$BL31_FILE ; do_cmd ; fi ;;
         *Program\ FIP*) if [ "$FIP" == "0" ] ; then continue ; fi ; check_fw_first ; if [ "$CMD_ABORT" != "1" ] ; then CMD=fip ; FILE_TO_SEND=$FIP_FILE ; do_cmd ; fi ;;
-        *Program\ u-boot*) if [ "$FIP" == "1" ] ; then continue ; fi ; check_fw_first ; if [ "$CMD_ABORT" != "1" ] ; then CMD=uboot ; FILE_TO_SEND=$UBOOT_FILE ; do_cmd ; fi ;;
-        *Program\ ATF*) check_fw_first ; if [ "$CMD_ABORT" != "1" ] ; then
+        *Program\ u-boot*) if [ "$FIP" == "1" ] || [ "$RISCV" == "1" ] ; then continue ; fi ; check_fw_first ; if [ "$CMD_ABORT" != "1" ] ; then CMD=uboot ; FILE_TO_SEND=$UBOOT_FILE ; do_cmd ; fi ;;
+        *Program\ ATF*) if [ "$RISCV" == "1" ] ; then continue; fi ; check_fw_first ; if [ "$CMD_ABORT" != "1" ] ; then
 		if [ "$FIP" == "0" ] ; then
 		  CMD=sa0 ; FILE_TO_SEND=$SA0_FILE ; do_cmd ; sleep 1 ;
 		  CMD=bl2 ; FILE_TO_SEND=$BL2_FILE ; do_cmd ; sleep 2 ;
@@ -1412,13 +1527,15 @@ if [ "$FW_GUI_MODE" == "1" ] ; then
 		 CMD=fip ; FILE_TO_SEND=$FIP_FILE ; do_cmd ; sleep 2 ;
 		fi
 		fi ;;
-        *Program\ All*) if [ "$FIP" == "1" ] ; then continue ; fi ; check_fw_first ; if [ "$CMD_ABORT" != "1" ] ; then
+        *Program\ All*) if [ "$FIP" == "1" ] || [ "$RISCV" == "1" ] ; then continue ; fi ; check_fw_first ; if [ "$CMD_ABORT" != "1" ] ; then
 		CMD=sa0 ; FILE_TO_SEND=$SA0_FILE ; do_cmd ;  sleep 1 ;
 		CMD=bl2 ; FILE_TO_SEND=$BL2_FILE ; do_cmd ;  sleep 2 ;
 		CMD=sa6 ; FILE_TO_SEND=$SA6_FILE ; do_cmd ;  sleep 1 ;
 		CMD=bl31 ; FILE_TO_SEND=$BL31_FILE ; do_cmd ;  sleep 2 ;
 		CMD=uboot ; FILE_TO_SEND=$UBOOT_FILE ; do_cmd ;  sleep 2 ;
 		fi ;;
+	*Program\ SPL*) if [ "$RISCV" == "0" ] ; then continue ; fi ; check_fw_first ; if [ "$CMD_ABORT" != "1" ] ; then CMD=spl ; FILE_TO_SEND=$SPL_FILE ; do_cmd ; fi ;;
+	*Program\ FIT*) if [ "$RISCV" == "0" ] ; then continue ; fi ; check_fw_first ; if [ "$CMD_ABORT" != "1" ] ; then CMD=fit ; FILE_TO_SEND=$FIT_FILE ; do_cmd ; fi ;;
         *eMMC*) CMD=emmc_config ; FILE_TO_SEND= ; do_cmd ;;
         *switches*) do_cmd_sw ;;
         *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
@@ -1663,6 +1780,8 @@ print_usage() {
 	echo "$0 uboot            # programs u-boot (BL33, Non-trusted Firmware)"
 	echo "$0 atf              # programs sa0+bl2+sa6+bl31 or bl2+fip all at once"
 	echo "$0 all              # programs sa0+bl2+sa6+bl31+uboot or bl2+fip all at once"
+	echo "$0 spl              # programs SPL (Secondary Program Loader)"
+	echo "$0 fit              # programs FIT (Flattened Image Tree)"
 	echo ""
 	echo "$0 emmc_config      # Configure an eMMC for booting (only needed once)"
 	echo ""
@@ -1759,7 +1878,12 @@ else
   CMD_DELAY="0.5"
 
   if [ "$LONGER_CMD_DELAY" == "1" ] ; then
-    CMD_DELAY="1.5"
+    if [ "$RISCV" == "1" ] ; then
+      # Set longer delay for RISC-V to prevent overrun
+      CMD_DELAY="2"
+    else
+      CMD_DELAY="1.5"
+    fi
   fi
 fi
 
@@ -1982,5 +2106,27 @@ if [ "$CMD" == "fip" ] || [ "$CMD" == "atf" ] || [ "$CMD" == "all" ] && [ "$FIP"
 	if [ "$CMD" == "atf" ] || [ "$CMD" == "all" ] ; then
 		# We need extra time before starting the next operation
 		sleep 3
+	fi
+fi
+
+if [ "$CMD" == "spl" ] && [ "$RISCV" == "1" ] ; then
+	if [ "$SPL_FILE" == "" ] && [ "$2" != "" ] ; then
+		SPL_FILE=$2
+	fi
+	if [ "$FLASH" == "0" ] ; then
+		do_spi_write "SPL" $SPI_SPL_RAM $SPI_SPL_FLASH $SPL_FILE
+	else
+		do_emmc_write "SPL" $EMMC_SPL_PART $EMMC_SPL_SECTOR $EMMC_SPL_RAM $SPL_FILE
+	fi
+fi
+
+if [ "$CMD" == "fit" ] && [ "$RISCV" == "1" ] ; then
+	if [ "$FIT_FILE" == "" ] && [ "$2" != "" ] ; then
+		FIT_FILE=$2
+	fi
+	if [ "$FLASH" == "0" ] ; then
+		do_spi_write "FIT" $SPI_FIT_RAM $SPI_FIT_FLASH $FIT_FILE
+	else
+		do_emmc_write "FIT" $EMMC_FIT_PART $EMMC_FIT_SECTOR $EMMC_FIT_RAM $FIT_FILE
 	fi
 fi
