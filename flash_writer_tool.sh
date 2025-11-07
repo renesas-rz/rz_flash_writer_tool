@@ -204,10 +204,16 @@ Switch settings for DSW1.
 "
   fi
 
-  if [ "$BOARD" == "rzt2h-dev" ] ; then
-	BOARD_NAME="RZ/T2H EVK by Renesas"
+  if [ "$BOARD" == "rzt2h-dev" ] || [ "$BOARD" == "rzn2h-dev" ] ; then
+	if [ "$BOARD" == "rzt2h-dev" ]; then
+		BOARD_NAME="RZ/T2H EVK by Renesas"
+		SW_NAME="SW14"
+	else
+		BOARD_NAME="RZ/N2H EVK by Renesas"
+		SW_NAME="DSW3"
+	fi
 	SW_SETTINGS="Please TURN OFF board power when changing switch settings.
-Switch settings for SW14.
+Switch settings for $SW_NAME.
 
 	xSPI0 Flash boot           xSPI1 boot
 	----------------           ----------
@@ -355,7 +361,7 @@ set_flash_address() {
     EMMC_FIP_RAM="0"         ; EMMC_FIP_PART="1"  ; EMMC_FIP_SECTOR="300"
   fi
 
-  if [ "$BOARD" == "rzt2h-dev" ] ; then
+  if [ "$BOARD" == "rzt2h-dev" ] || [ "$BOARD" == "rzn2h-dev" ] ; then
 
     LONGER_CMD_DELAY=1	# These parts need more time between sending commands
 
@@ -474,7 +480,8 @@ set_filenames() {
 
   if [ "$BOARD" == "smarc-rzg2l" ] || [ "$BOARD" == "smarc-rzg2lc" ] || [ "$BOARD" == "smarc-rzg2ul" ] || \
      [ "$BOARD" == "smarc-rzv2l" ] || [ "$BOARD" == "smarc-rzg3e" ] || [ "$BOARD" == "smarc-rzg3s" ] || \
-     [ "$BOARD" == "rzv2h-evk-ver1" ] || [ "$BOARD" == "rzv2n-evk" ] || [ "$BOARD" == "rzt2h-dev" ]; then
+     [ "$BOARD" == "rzv2h-evk-ver1" ] || [ "$BOARD" == "rzv2n-evk" ] || [ "$BOARD" == "rzt2h-dev" ] || \
+	 [ "$BOARD" == "rzn2h-dev" ]; then
 
 	FIP=1
 	EMMC_4BIT=1
@@ -533,6 +540,12 @@ set_filenames() {
 
 		BL2_FILE=$FILES_DIR/bl2_bp_xspi0-rzt2h-dev.srec
 		FIP_FILE=$FILES_DIR/fip-rzt2h-dev.srec
+	fi
+	if [ "$FLASHWRITER" == "" ] && [ "$BOARD" == "rzn2h-dev" ]; then
+		FLASHWRITER="$FILES_DIR/Flash_Programmer_SCIF_CR52_RZT2H_EVK.mot"
+
+		BL2_FILE=$FILES_DIR/bl2_bp_xspi0-rzn2h-dev.srec
+		FIP_FILE=$FILES_DIR/fip-rzn2h-dev.srec
 	fi
 	if [ "$BL2_FILE" == "" ] ; then
 		BL2_FILE=$FILES_DIR/bl2_bp-${BOARD}.bin
@@ -722,6 +735,7 @@ do_menu_board() {
 	"rzv2h-evk-ver1" "  RZ/V2H EVK by Renesas Electronics" \
 	"rzv2n-evk"      "  RZ/V2N EVK by Renesas Electronics" \
 	"rzt2h-dev"      "  RZ/T2H EVK by Renesas Electronics" \
+	"rzn2h-dev"      "  RZ/N2H EVK by Renesas Electronics" \
 	"CUSTOM"         "  (manually edit ini file)" \
 	3>&1 1>&2 2>&3)
   RET=$?
@@ -758,6 +772,7 @@ do_menu_board() {
       rzv2h-evk-ver1) BOARD=rzv2h-evk-ver1 ; FIP=1 ; EMMC_4BIT=1 ;;
       rzv2n-evk) BOARD=rzv2n-evk ; FIP=1 ; EMMC_4BIT=1 ;;
       rzt2h-dev) BOARD=rzt2h-dev ; FIP=1 ; EMMC_4BIT=1 ;;
+      rzn2h-dev) BOARD=rzn2h-dev ; FIP=1 ; EMMC_4BIT=1 ;;
       CUSTOM) BOARD=CUSTOM ;;
       *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
     esac || whiptail --msgbox "There was an error running option $SELECT" 20 60 1
@@ -1282,6 +1297,11 @@ if [ "$FW_GUI_MODE" == "1" ] ; then
       FIP=1
       EMMC_4BIT=1
       DETECTED=1
+    elif [ -e ${IMAGES_DIR}/rzn2h-dev ] ; then
+      BOARD="rzn2h-dev"
+      FIP=1
+      EMMC_4BIT=1
+      DETECTED=1
     else
       # default to RZ/G2M
       BOARD="hihope-rzg2m"
@@ -1728,7 +1748,7 @@ do_spi_write() {
 	FILENAME=$(basename $4)
 	FILENAME_EXT=`echo ${FILENAME: -5}`
 	if [ "$FILENAME_EXT" == ".srec" ] ; then
-		if [ "$BOARD" == "rzt2h-dev" ] ; then
+		if [ "$BOARD" == "rzt2h-dev" ] || [ "$BOARD" == "rzn2h-dev" ] ; then
 			# S-Record Write
 			do_xspiw "$1" $2 $3 $4
 		else
@@ -1927,7 +1947,7 @@ if [ "$CMD" == "fw" ] ; then
 	fi
 
 	# RZ/T2H needs a special "HDR NM" file to be sent before flashwriter
-	if [ "$BOARD" == "rzt2h-dev" ] ; then
+	if [ "$BOARD" == "rzt2h-dev" ] || [ "$BOARD" == "rzn2h-dev" ] ; then
 		echo "Sending HDR NM"
 		echo -en "S0090000484452204E4D5D" > $SERIAL_DEVICE_INTERFACE
 		sleep 1
