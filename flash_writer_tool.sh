@@ -1211,7 +1211,7 @@ if [ "$FW_GUI_MODE" == "1" ] ; then
   # Do not do this if you are in a SSH or docker session
   if [ "$DISPLAY" != "" ] ; then
     #printf '\033[8;40;120t'
-    resize -s 50 120  > /dev/null
+    resize -s 48 120  > /dev/null
   fi
 
   # Read what we used last time
@@ -1470,8 +1470,6 @@ if [ "$FW_GUI_MODE" == "1" ] ; then
 	"$OP1 Program BL31    " "  BL31 (EL3 Runtime Software)" \
 	"$OP3 Program FIP     " "  FIP (Firmware Image Package)" \
 	"$OP1 Program u-boot  " "  u-boot (BL33, Non-trusted Firmware)" \
-	"$OP2 Program ATF     " "  Program all arm-trusted-firmware files (SA0,BL2,SA6,BL31,FIP)" \
-	"$OP1 Program All     " "  Programs all files (SA0,BL2,SA6,BL31 and u-boot)" \
 	"$OP4 Program SPL     " "  SPL (Secondary Program Loader)" \
 	"$OP5 Program FIT     " "  FIT (Flattened Image Tree)" \
 	"$OP6 eMMC boot setup " "  Configure an eMMC device for booting (only needed once)" \
@@ -1536,24 +1534,6 @@ if [ "$FW_GUI_MODE" == "1" ] ; then
         *Program\ BL31*) if [ "$FIP" == "1" ] || [ "$RISCV" == "1" ] ; then continue ; fi ; check_fw_first ; if [ "$CMD_ABORT" != "1" ] ; then CMD=bl31 ; FILE_TO_SEND=$BL31_FILE ; do_cmd ; fi ;;
         *Program\ FIP*) if [ "$FIP" == "0" ] ; then continue ; fi ; check_fw_first ; if [ "$CMD_ABORT" != "1" ] ; then CMD=fip ; FILE_TO_SEND=$FIP_FILE ; do_cmd ; fi ;;
         *Program\ u-boot*) if [ "$FIP" == "1" ] || [ "$RISCV" == "1" ] ; then continue ; fi ; check_fw_first ; if [ "$CMD_ABORT" != "1" ] ; then CMD=uboot ; FILE_TO_SEND=$UBOOT_FILE ; do_cmd ; fi ;;
-        *Program\ ATF*) if [ "$RISCV" == "1" ] ; then continue; fi ; check_fw_first ; if [ "$CMD_ABORT" != "1" ] ; then
-		if [ "$FIP" == "0" ] ; then
-		  CMD=sa0 ; FILE_TO_SEND=$SA0_FILE ; do_cmd ; sleep 1 ;
-		  CMD=bl2 ; FILE_TO_SEND=$BL2_FILE ; do_cmd ; sleep 2 ;
-		  CMD=sa6 ; FILE_TO_SEND=$SA6_FILE ; do_cmd ;  sleep 1 ;
-		  CMD=bl31 ; FILE_TO_SEND=$BL31_FILE ; do_cmd ;  sleep 2 ;
-		else
-		 CMD=bl2 ; FILE_TO_SEND=$BL2_FILE ; do_cmd ; sleep 2 ;
-		 CMD=fip ; FILE_TO_SEND=$FIP_FILE ; do_cmd ; sleep 2 ;
-		fi
-		fi ;;
-        *Program\ All*) if [ "$FIP" == "1" ] || [ "$RISCV" == "1" ] ; then continue ; fi ; check_fw_first ; if [ "$CMD_ABORT" != "1" ] ; then
-		CMD=sa0 ; FILE_TO_SEND=$SA0_FILE ; do_cmd ;  sleep 1 ;
-		CMD=bl2 ; FILE_TO_SEND=$BL2_FILE ; do_cmd ;  sleep 2 ;
-		CMD=sa6 ; FILE_TO_SEND=$SA6_FILE ; do_cmd ;  sleep 1 ;
-		CMD=bl31 ; FILE_TO_SEND=$BL31_FILE ; do_cmd ;  sleep 2 ;
-		CMD=uboot ; FILE_TO_SEND=$UBOOT_FILE ; do_cmd ;  sleep 2 ;
-		fi ;;
 	*Program\ SPL*) if [ "$RISCV" == "0" ] ; then continue ; fi ; check_fw_first ; if [ "$CMD_ABORT" != "1" ] ; then CMD=spl ; FILE_TO_SEND=$SPL_FILE ; do_cmd ; fi ;;
 	*Program\ FIT*) if [ "$RISCV" == "0" ] ; then continue ; fi ; check_fw_first ; if [ "$CMD_ABORT" != "1" ] ; then CMD=fit ; FILE_TO_SEND=$FIT_FILE ; do_cmd ; fi ;;
         *eMMC*) CMD=emmc_config ; FILE_TO_SEND= ; do_cmd ;;
@@ -2032,7 +2012,7 @@ if [ "$CMD" == "x0" ] || [ "$CMD" == "x1" ] || [ "$CMD" == "x2" ] ; then
 	fi
 fi
 
-if [ "$CMD" == "sa0" ] || [ "$CMD" == "atf" ] || [ "$CMD" == "all" ] && [ "$FIP" == "0" ] ; then
+if [ "$CMD" == "sa0" ] ; then
 	if [ "$SA0_FILE" == "" ] && [ "$2" != "" ] ; then
 		SA0_FILE=$2
 	fi
@@ -2049,7 +2029,7 @@ if [ "$CMD" == "sa0" ] || [ "$CMD" == "atf" ] || [ "$CMD" == "all" ] && [ "$FIP"
 	fi
 fi
 
-if [ "$CMD" == "bl2" ] || [ "$CMD" == "atf" ] || [ "$CMD" == "all" ] ; then
+if [ "$CMD" == "bl2" ] ; then
 	if [ "$BL2_FILE" == "" ] && [ "$2" != "" ] ; then
 		BL2_FILE=$2
 	fi
@@ -2065,7 +2045,7 @@ if [ "$CMD" == "bl2" ] || [ "$CMD" == "atf" ] || [ "$CMD" == "all" ] ; then
 	fi
 fi
 
-if [ "$CMD" == "sa6" ] || [ "$CMD" == "atf" ] || [ "$CMD" == "all" ] && [ "$FIP" == "0" ] ; then
+if [ "$CMD" == "sa6" ] ; then
 	if [ "$SA6_FILE" == "" ] && [ "$2" != "" ] ; then
 		SA6_FILE=$2
 	fi
@@ -2081,7 +2061,7 @@ if [ "$CMD" == "sa6" ] || [ "$CMD" == "atf" ] || [ "$CMD" == "all" ] && [ "$FIP"
 	fi
 fi
 
-if [ "$CMD" == "bl31" ] || [ "$CMD" == "atf" ] || [ "$CMD" == "all" ] && [ "$FIP" == "0" ] ; then
+if [ "$CMD" == "bl31" ] ; then
 	if [ "$BL31_FILE" == "" ] && [ "$2" != "" ] ; then
 		BL31_FILE=$2
 	fi
@@ -2097,7 +2077,7 @@ if [ "$CMD" == "bl31" ] || [ "$CMD" == "atf" ] || [ "$CMD" == "all" ] && [ "$FIP
 	fi
 fi
 
-if [ "$CMD" == "uboot" ] || [ "$CMD" == "all" ] && [ "$FIP" == "0" ] ; then
+if [ "$CMD" == "uboot" ] ; then
 	if [ "$UBOOT_FILE" == "" ] && [ "$2" != "" ] ; then
 		UBOOT_FILE=$2
 	fi
@@ -2113,7 +2093,7 @@ if [ "$CMD" == "uboot" ] || [ "$CMD" == "all" ] && [ "$FIP" == "0" ] ; then
 	fi
 fi
 
-if [ "$CMD" == "fip" ] || [ "$CMD" == "atf" ] || [ "$CMD" == "all" ] && [ "$FIP" == "1" ] ; then
+if [ "$CMD" == "fip" ] ; then
 	if [ "$FIP_FILE" == "" ] && [ "$2" != "" ] ; then
 		FIP_FILE=$2
 	fi
