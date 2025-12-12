@@ -821,7 +821,7 @@ do_menu_dev() {
   DEVICES=()
   OPTIONS=()
   COUNTER=1
-  
+
   # Find USB serial devices
   for dev in /dev/ttyUSB* /dev/ttyACM*; do
     if [ -c "$dev" ]; then  # Check if it's a character device (real serial port)
@@ -829,7 +829,7 @@ do_menu_dev() {
       # Get vendor and model info using udevadm
       VENDOR=$(udevadm info -q property -n "$dev" 2>/dev/null | grep "ID_VENDOR=" | cut -d= -f2)
       MODEL=$(udevadm info -q property -n "$dev" 2>/dev/null | grep "ID_MODEL=" | cut -d= -f2)
-      
+
       if [ -n "$VENDOR" ] && [ -n "$MODEL" ]; then
         DESCRIPTION="$VENDOR $MODEL"
       elif [ -n "$VENDOR" ]; then
@@ -837,23 +837,23 @@ do_menu_dev() {
       else
         DESCRIPTION="Serial device"
       fi
-      
+
       OPTIONS+=("$COUNTER" "$dev - $DESCRIPTION")
       ((COUNTER++))
     fi
   done
-  
+
   # If no devices found, show message and return
   if [ ${#DEVICES[@]} -eq 0 ]; then
     whiptail --msgbox "No serial devices found. Please connect a device and try again." 20 60 1
     return 1
   fi
-  
+
   # Create the menu
   SELECT=$(whiptail --title "Interface Selection" --menu "You may use ESC+ESC to cancel." 0 0 0 \
     "${OPTIONS[@]}" \
     3>&1 1>&2 2>&3)
-  
+
   RET=$?
   if [ $RET -eq 0 ]; then
     # Extract the selected device (SELECT contains the index number)
