@@ -2097,6 +2097,21 @@ if [ "$CMD" == "fip" ] ; then
 	if [ "$FIP_FILE" == "" ] && [ "$2" != "" ] ; then
 		FIP_FILE=$2
 	fi
+
+	if [ "$BOARD" == "smarc-rzg2l" ] || [ "$BOARD" == "smarc-rzg2lc" ] || [ "$BOARD" == "smarc-rzg2ul" ] || \
+		[ "$BOARD" == "smarc-rzv2l" ] ; then
+
+		# For TF-A version v2.10.5 and later, the address of FIP changed
+		strings $BL2_FILE | grep "v2.10.5"
+		if [ "$?" == "0" ] ; then
+			SPI_FIP_FLASH="20000"
+		fi
+		strings $BL2_FILE | grep "76322E31302E35"
+		if [ "$?" == "0" ] ; then
+			SPI_FIP_FLASH="20000"
+		fi
+	fi
+
 	if [ "$FLASH" == "0" ] ; then
 		do_spi_write "FIP" $SPI_FIP_RAM $SPI_FIP_FLASH $FIP_FILE
 	else
