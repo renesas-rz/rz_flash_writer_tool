@@ -403,7 +403,6 @@ config_hash() {
   "$SERIAL_DEVICE_SPEED" \
   "$FILES_DIR" \
   "$FLASHWRITER" \
-  "$FW_PREBUILT" \
   "$SA0_FILE" \
   "$BL2_FILE" \
   "$SA6_FILE" \
@@ -622,42 +621,6 @@ set_filenames() {
   fi
 }
 
-set_fw_binary() {
-  if [ "$FW_PREBUILT" == "1" ] ; then
-    if [ "${BOARD:0:6}" == "hihope" ] ; then
-      B_NAME="hihope"
-    fi
-    if [ "$BOARD" == "ek874" ] ; then
-      B_NAME="ek874"
-    fi
-    if [ "$FLASH" == "0" ] ; then
-      F_NAME="SPI"
-    else
-      F_NAME="eMMC"
-    fi
-    if [ "${SERIAL_DEVICE_INTERFACE:8:3}" == "ACM" ] ; then
-      S_NAME="USB"
-    else
-      S_NAME="SCIF"
-    fi
-
-    FLASHWRITER="./binaries/Flash_writer_${B_NAME}_${S_NAME}_${F_NAME}.mot"
-
-    if [ "$BOARD" == "smarc-rzg2l" ] ; then
-      FLASHWRITER="./binaries/Flash_Writer_SCIF_RZG2L_SMARC_DDR4_2GB.mot"
-    fi
-    if [ "$BOARD" == "smarc-rzg2lc" ] ; then
-      FLASHWRITER="./binaries/Flash_Writer_SCIF_RZG2LC_SMARC_DDR4_1GB_1PCS.mot"
-    fi
-    if [ "$BOARD" == "smarc-rzg2ul" ] ; then
-      FLASHWRITER="./binaries/Flash_Writer_SCIF_RZG2UL_SMARC_DDR4_1GB_1PCS.mot"
-    fi
-    if [ "$BOARD" == "smarc-rzfive" ] ; then
-      FLASHWRITER="./binaries/Flash_Writer_SCIF_RZFIVE_SMARC.mot"
-    fi
-
-  fi
-}
 
 do_menu_config() {
   SELECT=$(whiptail --title "Config File Selection" --menu "You may use ESC+ESC to cancel.\n\nHow do you want to select the file?" 0 0 0 \
@@ -782,7 +745,6 @@ do_menu_board() {
     set_flash_address
     clear_filenames
     set_filenames
-    set_fw_binary
 
   fi
 }
@@ -813,7 +775,6 @@ do_menu_target_flash() {
     esac || whiptail --msgbox "There was an error running option $SELECT" 20 60 1
   fi
 
-  set_fw_binary
 }
 
 do_menu_dev() {
@@ -870,7 +831,6 @@ do_menu_dev() {
     return 1
   fi
 
-  set_fw_binary
 }
 
 do_menu_speed() {
@@ -1027,21 +987,8 @@ do_menu_file_dir() {
 }
 
 do_menu_file_fw() {
-  SELECT=$(whiptail --title "Flash Writer Selection" --menu "You may use ESC+ESC to cancel." 0 0 0 \
-	"1. Enter filename" " " \
-	"2. Use included prebuilt binaries (auto select)" " " \
-	3>&1 1>&2 2>&3)
-  RET=$?
-  if [ $RET -eq 0 ] ; then
-    case "$SELECT" in
-      1.\ *) FW_PREBUILT=0 ;;
-      2.\ *) FW_PREBUILT=1 ; set_fw_binary ; return ;;
-      *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
-    esac || whiptail --msgbox "There was an error running option $SELECT" 20 60 1
-  fi
-
   SELECT=$(whiptail --title "Flash Writer File Selection" --inputbox "You may use ESC+ESC to cancel.\n\n Enter file path to Flash Writer File." 0 100 \
-	"AArch64_Flash_writer_SCIF_DUMMY_CERT_E6300400_${BOARD}.mot"  \
+	"${FLASHWRITER}"  \
 	3>&1 1>&2 2>&3)
   RET=$?
   if [ $RET -eq 0 ] ; then
@@ -1173,7 +1120,6 @@ save_config() {
 	echo "SERIAL_DEVICE_SPEED=$SERIAL_DEVICE_SPEED" >> $CONFIG_FILE
 
 	echo "FILES_DIR=$FILES_DIR" >> $CONFIG_FILE
-	echo "FW_PREBUILT=$FW_PREBUILT" >> $CONFIG_FILE
 	echo "FLASHWRITER=$FLASHWRITER" >> $CONFIG_FILE
 	echo "FIP=$FIP" >> $CONFIG_FILE
 	echo "EMMC_4BIT=$EMMC_4BIT" >> $CONFIG_FILE
@@ -1346,15 +1292,8 @@ if [ "$FW_GUI_MODE" == "1" ] ; then
 
     # change the text that is displayed on the screen
     FLASH_TEXT=("SPI Flash" "eMMC Flash")
-    if [ "${FLASHWRITER:0:6}" != "binaries" ] && [ "${FLASHWRITER:2:8}" != "binaries" ] ; then
-      FLASHWRITER_TEXT=$(echo $FLASHWRITER | sed "s:$FILES_DIR:\$(FILES_DIR):")
-    else
-      if [ "$FW_PREBUILT" == "1" ] ; then
-        FLASHWRITER_TEXT="$FLASHWRITER (auto select)"
-      else
-        FLASHWRITER_TEXT="$FLASHWRITER"
-      fi
-    fi
+    FLASHWRITER_TEXT=$(echo $FLASHWRITER | sed "s:$FILES_DIR:\$(FILES_DIR):")
+
     SA0_FILE_TEXT=$(echo $SA0_FILE | sed "s:$FILES_DIR:\$(FILES_DIR):")
     BL2_FILE_TEXT=$(echo $BL2_FILE | sed "s:$FILES_DIR:\$(FILES_DIR):")
     SA6_FILE_TEXT=$(echo $SA6_FILE | sed "s:$FILES_DIR:\$(FILES_DIR):")
