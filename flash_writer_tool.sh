@@ -283,7 +283,7 @@ set_flash_address() {
     SPI_SA6_RAM=""      ; SPI_SA6_FLASH="" # not used
     SPI_BL31_RAM=""     ; SPI_BL31_FLASH="" # not used
     SPI_UBOOT_RAM=""    ; SPI_UBOOT_FLASH="" # not used
-    SPI_FIP_RAM="0"     ; SPI_FIP_FLASH="1D200"
+    SPI_FIP_RAM="0"     ; SPI_FIP_FLASH="1D200"	# This changed to 20000 starting in TF-A v2.10.5
 
     EMMC_SA0_RAM=""          ; EMMC_SA0_PART=""   ; EMMC_SA0_SECTOR=""   # not used
     EMMC_BL2_RAM="11E00"     ; EMMC_BL2_PART="1"  ; EMMC_BL2_SECTOR="1"
@@ -321,7 +321,7 @@ set_flash_address() {
     SPI_SA6_RAM=""      ; SPI_SA6_FLASH="" # not used
     SPI_BL31_RAM=""     ; SPI_BL31_FLASH="" # not used
     SPI_UBOOT_RAM=""    ; SPI_UBOOT_FLASH="" # not used
-    SPI_FIP_RAM="0"     ; SPI_FIP_FLASH="64000"
+    SPI_FIP_RAM="0"     ; SPI_FIP_FLASH="64000" # This changed to 60000 starting in TF-A v2.10.5
 
     EMMC_SA0_RAM=""          ; EMMC_SA0_PART=""   ; EMMC_SA0_SECTOR=""   # not used
     EMMC_BL2_RAM="11E00"     ; EMMC_BL2_PART="1"  ; EMMC_BL2_SECTOR="1"
@@ -2037,17 +2037,35 @@ if [ "$CMD" == "fip" ] ; then
 		FIP_FILE=$2
 	fi
 
-	if [ "$BOARD" == "smarc-rzg2l" ] || [ "$BOARD" == "smarc-rzg2lc" ] || [ "$BOARD" == "smarc-rzg2ul" ] || \
-		[ "$BOARD" == "smarc-rzv2l" ] ; then
-
-		# For TF-A version v2.10.5 and later, the address of FIP changed
+	# Need to check TF-A version
+	# For TF-A version v2.10.5 and later, the address of FIP changed for some devices
+	V2_10_5="false"
+	# Binary file check
+	if [ "${BL2_FILE: -3}" == "bin"  ] ; then
 		strings $BL2_FILE | grep "v2.10.5"
 		if [ "$?" == "0" ] ; then
+			V2_10_5="true"
+		fi
+	fi
+	# S-Record file check
+	if [ "${FIP_FILE: -4}" == "srec"  ] ; then
+		# For .srec files, we need to combine all the lines because the string might be on multiples lines
+		cp $BL2_FILE /tmp/bl2_check.txt
+		sed -i 's/...$//' /tmp/bl2_check.txt		# Remove last 3 character (CRC + CR) from end of each line (LF is left)
+		sed -i 's/^.\{12\}//' /tmp/bl2_check.txt	# Remove first 12 character (S3 + count + addr) from each line
+		perl -i -pe 's/\n//g' /tmp/bl2_check.txt	# Remove all LF from the file
+		strings /tmp/bl2_check.txt | grep "76322E31302E35" > /dev/null
+		if [ "$?" == "0" ] ; then
+			V2_10_5="true"
+		fi
+	fi
+	if [ "$V2_10_5" == "true" ] ; then
+		if [ "$BOARD" == "smarc-rzg2l" ] || [ "$BOARD" == "smarc-rzg2lc" ] || [ "$BOARD" == "smarc-rzg2ul" ] || [ "$BOARD" == "smarc-rzv2l" ] ; then
 			SPI_FIP_FLASH="20000"
 		fi
-		strings $BL2_FILE | grep "76322E31302E35"
-		if [ "$?" == "0" ] ; then
-			SPI_FIP_FLASH="20000"
+
+		if [ "$BOARD" == "smarc-rzg3s" ] ; then
+			SPI_FIP_FLASH="60000"
 		fi
 	fi
 
